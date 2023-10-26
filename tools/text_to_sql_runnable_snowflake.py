@@ -13,13 +13,13 @@ from langchain.utilities import SQLDatabase
 from snowflake.sqlalchemy import URL
 
 
-account = ''
-user = ''
-password = '!'
-warehouse = ''
-database = ''
-schema = ''
-role = ''
+account = "ralphlauren-ralphlauren"
+user = "CIX_REPORTING_USER_PROD"
+password = "Reporting@CIX-2023"
+warehouse = "CIX_REPORTING_PROD_WH"
+database = "CIX_PROD_DB"
+schema = "PUBLISHED"
+role = "CIX_DATA_ANALYST_PROD"
 
 engine = create_engine(URL(
     account = account,
