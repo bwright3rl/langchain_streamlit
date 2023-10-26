@@ -16,7 +16,7 @@ def run_query(llm, query):
     password = "Reporting@CIX-2023"
     warehouse = "CIX_REPORTING_PROD_WH"
     database = "CIX_PROD_DB"
-    schema = "FOUNDATION"
+    schema = "PUBLISHED"
     role = "CIX_DATA_ANALYST_PROD"
 
     engine = create_engine(
