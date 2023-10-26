@@ -33,6 +33,8 @@ def run_query(llm, query):
 
     _DEFAULT_TEMPLATE = """Given an input question, first create a syntactically correct {dialect} query to run, then look at the results of the query and return the answer.
     
+    The query must run in a Snowflake database, so be sure to include all column names inside quotation marks, for example "month" or "year".
+
     When providing the SQLQuery, only respond with the SQL Query and nothing more.
 
     Do not append 'Query:' to SQLQuery.
