@@ -35,7 +35,7 @@ def run_query(llm, query):
     
     The query must run in a Snowflake database, so be sure to include all column names inside quotation marks, for example "month" or "year".
 
-    When providing the SQLQuery, only respond with the SQL Query and nothing more.
+    When providing the SQLQuery, only respond with the SQL Query and nothing more. Do not return anything other than the sql query
 
     Do not append 'Query:' to SQLQuery.
     
