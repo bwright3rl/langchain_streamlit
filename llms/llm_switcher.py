@@ -5,6 +5,8 @@ from langchain.llms.gpt4all import GPT4All
 from langchain.llms.bedrock import Bedrock
 from langchain.llms.sagemaker_endpoint import ContentHandlerBase, LLMContentHandler
 from langchain.llms import SagemakerEndpoint
+from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from dotenv import load_dotenv
 
@@ -23,7 +25,9 @@ def get_llm():
         }
         
         llm = Bedrock(model_id = os.getenv("BEDROCK_MODEL_ID"), model_kwargs = inference_modifier)
-        
+    
+    elif os.getenv("MODEL_PROVIDER") == 'openai':
+        llm = OpenAI(openai_api_key = os.getenv("OPENAI_API_KEY"), temperature=0)
         
     elif os.getenv("MODEL_PROVIDER") == 'sagemaker':
 

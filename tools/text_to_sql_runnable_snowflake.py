@@ -65,6 +65,12 @@ def run_query(llm, query):
 
     {question} 
     
+    You should put all column names in double quotation marks, for example "label_code" or "year".
+    You should not put table names in quotation marks, for example langchain_test_data.
+
+    An example query you should output is:
+    SELECT count(distinct("label_code")) FROM SNOWFLAKE_SANDBOX_LANGCHAIN_TEST
+
     Only respond with the SQL Query and nothing more.
     
     """
@@ -90,8 +96,15 @@ def run_query(llm, query):
     
     {schema}
     
-    Your entire response should be in plain english that a normal human can understand. 
+    Your entire response should be in plain english that a normal human can understand. Only return the answer, without any pre-amble like 'based on the sql response...'
 
+    Here is an example...
+    Question: 'how many products have we sold?'
+    SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
+    SQLResult: '[(150,)]'
+    Answer: 'We have sold 150 products'
+
+    Now here is the actual answer we need you to generate...
     Question: {question}
     SQLQuery: {query}
     SQLResult: {response}
