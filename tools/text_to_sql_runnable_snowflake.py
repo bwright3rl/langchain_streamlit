@@ -92,17 +92,20 @@ def run_query(llm, query):
     )
 
     # Define a prompt to interpret the results of the SQL query and generate a natural language response
-    template_sql_response = """Based on the {dialect} table schema, sample rows, question, SQL query, and SQL response below, write a natural language response as an answer to the question. 
-    
-    {schema}
-    
-    Your entire response should be in plain english that a normal human can understand. Only return the answer, without any pre-amble like 'based on the sql response...'
+    template_sql_response = """You are a helpful analyst. Based on the SQL response below, write a natural language response as an answer to the user's question. 
+    Do not refer to SQL queries. Do not append anything to the front of the final answer, like 'Based on the SQL query and result provided, the answer to the question "which years do we have data for?" is:'
 
     Here is an example...
     Question: 'how many products have we sold?'
     SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
     SQLResult: '[(150,)]'
     Answer: 'We have sold 150 products'
+
+    Here is another example
+    Question: 'how many years worth of data do we have?'
+    SQLQuery: 'SELECT COUNT(DISTINCT("year")) FROM snowflake_sandbox_langchain_test'
+    SQLResult: '[(3,)]'
+    Answer: 'We have 3 years worth of data.'
 
     Now here is the actual answer we need you to generate...
     Question: {question}
