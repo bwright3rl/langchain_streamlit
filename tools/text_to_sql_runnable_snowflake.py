@@ -60,19 +60,30 @@ def convert_intermediate_steps(question, response):
 def run_query(llm, query):
  
     # Define prompt to generate an SQL query
-    template_prompt_sql_query = """Based on the table schema and sample rows below, write a syntactically correct {dialect} SQL query that would answer the user's question:
+    template_prompt_sql_query = """Based on the table schema and sample rows below, write a syntactically correct {dialect} SQL query that would answer the user's question.
+    Only respond with the SQL Query and nothing more.
+
+    The database schema and sample rows are:
     {schema}
 
-    {question} 
-    
     You should put all column names in double quotation marks, for example "label_code" or "year".
     You should not put table names in quotation marks, for example langchain_test_data.
 
-    An example query you should output is:
-    SELECT count(distinct("label_code")) FROM SNOWFLAKE_SANDBOX_LANGCHAIN_TEST
+    An example question and sql query output is:
+    Question:'how many products have we sold?'
+    SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
 
-    Only respond with the SQL Query and nothing more.
-    
+    Another example:
+    Question: 'how many years worth of data do we have?'
+    SQLQuery: 'SELECT COUNT(DISTINCT("year")) FROM snowflake_sandbox_langchain_test'
+
+    Another example:
+    Question: 'which hour of the day has the highest revenue?'
+    SQLQuery: 'SELECT EXTRACT(HOUR FROM "transaction_timestamp") AS "hour", SUM("amount") AS "revenue" FROM snowflake_sandbox_langchain_test GROUP BY EXTRACT(HOUR FROM "transaction_timestamp") ORDER BY "revenue" DESC LIMIT 1'
+        
+    Now here is the question we want you to generate a SQl query for:
+    Question: {question}
+    SQLQuery: 
     """
     
     # Create a ChatPromptTemplate from the prompt
@@ -106,6 +117,12 @@ def run_query(llm, query):
     SQLQuery: 'SELECT COUNT(DISTINCT("year")) FROM snowflake_sandbox_langchain_test'
     SQLResult: '[(3,)]'
     Answer: 'We have 3 years worth of data.'
+
+    Here is another example
+    Question: 'which hour of the day has the highest revenue?'
+    SQLQuery: 'SELECT EXTRACT(HOUR FROM "transaction_timestamp") AS "hour", SUM("amount") AS "revenue" FROM snowflake_sandbox_langchain_test GROUP BY EXTRACT(HOUR FROM "transaction_timestamp") ORDER BY "revenue" DESC LIMIT 1'
+    SQLResult: '[(15,)]'
+    Answer: '3pm is the hour of the day with the highest revenue.'
 
     Now here is the actual answer we need you to generate...
     Question: {question}
