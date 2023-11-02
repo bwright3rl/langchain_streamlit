@@ -1,7 +1,7 @@
 from langchain.prompts import ChatPromptTemplate
 from langchain.utilities import SQLDatabase
 import boto3
-from langchain import PromptTemplate, SQLDatabase
+from langchain import PromptTemplate, SQLDatabase, FewShotPromptTemplate
 from langchain.prompts.prompt import PromptTemplate
 from langchain_experimental.sql import SQLDatabaseChain
 from sqlalchemy import create_engine
@@ -11,6 +11,7 @@ from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnableLambda, RunnableMap
 from langchain.utilities import SQLDatabase
 from snowflake.sqlalchemy import URL
+import pinecone
 
 #adding some comments here to test how the dataiku library sync works
 
@@ -58,9 +59,47 @@ def convert_intermediate_steps(question, response):
 
 
 def run_query(llm, query):
- 
-    # Define prompt to generate an SQL query
-    template_prompt_sql_query = """Based on the table schema and sample rows below, write a syntactically correct {dialect} SQL query that would answer the user's question.
+    
+    # query the vectorstore to find examples
+    # initialise pinecone
+    pinecone.init(
+        api_key = 'ee51ea59-8860-4575-b6ab-04b68802ab28',
+        environment='us-west1-gcp-free'
+    )
+
+    #point to the right index
+    index = pinecone.Index("langchain-queries")
+
+    # generate embeddings for the user question
+    model="text-embedding-ada-002"
+    question_embedding = openai.Embedding.create(input = question, model=model)['data'][0]['embedding']
+
+    #query the vectorstore
+    response = index.query(
+        namespace="",
+        top_k=3,
+        include_values=False,
+        include_metadata=True,
+        vector=example_embedding,
+    )
+
+    #format the examples to be used in a prompt
+    examples = [response['matches'][i]['metadata'] for i in range(len(response['matches']))]
+
+    # create a example template
+    example_template = """
+    Question: {question}
+    Query: {query}
+    """
+    # create a prompt example from above template
+    example_prompt = PromptTemplate(
+        input_variables=["question", "query"],
+        template=example_template
+    )
+
+    # now break our previous prompt into a prefix and suffix
+    # the prefix is our instructions
+    prefix = """Based on the table schema and sample rows below, write a syntactically correct {dialect} SQL query that would answer the user's question.
     Only respond with the SQL Query and nothing more.
 
     The database schema and sample rows are:
@@ -69,35 +108,57 @@ def run_query(llm, query):
     You should put all column names in double quotation marks, for example "label_code" or "year".
     You should not put table names in quotation marks, for example langchain_test_data.
 
-    An example question and sql query output is:
-    Question:'how many products have we sold?'
-    SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
-
-    Another example:
-    Question: 'what is the year on year growth of handbag sales in new york for the last 5 years?'
-    SQLQuery: 'SELECT EXTRACT(YEAR FROM "transaction_at") AS "year",        
-SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END) AS "Handbag Sales",        
-SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END) - LAG(SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END), 1) OVER (ORDER BY EXTRACT(YEAR FROM "transaction_at")) AS "Year on Year Growth" 
-FROM langchain_test
-WHERE EXTRACT(YEAR FROM "transaction_at") BETWEEN YEAR(DATEADD(YEAR, -5, GETDATE())) AND YEAR(GETDATE()) 
-GROUP BY EXTRACT(YEAR FROM "transaction_at")
-ORDER BY EXTRACT(YEAR FROM "transaction_at") DESC;'
-
-    Another example:
-    Question: 'what was the average basket size in the last week?'
-    SQLQuery: 'SELECT avg("basket_size")
-from
-(SELECT "transaction_id", COUNT("units") as "basket_size" FROM langchain_test WHERE "transaction_at" >= DATEADD(DAY, -7, CURRENT_DATE)
-GROUP BY "transaction_id"
-)'
-        
-    Now here is the question we want you to generate a SQl query for:
-    Question: {question}
-    SQLQuery: 
+    Some example questions and corresponding SQL queries are:
     """
+    # and the suffix our user input and output indicator
+    suffix = """Now here is the question we want you to generate a SQl query for:
+    Question: {question}
+    Query: """
+
+    # now create the few shot prompt template
+    prompt_sql_query = FewShotPromptTemplate(
+        examples=examples,
+        example_prompt=example_prompt,
+        prefix=prefix,
+        suffix=suffix,
+        input_variables=["question"],
+        example_separator="\n"
+    )
+    
+    # Define prompt to generate an SQL query
+#     template_prompt_sql_query = """Based on the table schema and sample rows below, write a syntactically correct {dialect} SQL query that would answer the user's question.
+#     Only respond with the SQL Query and nothing more.
+
+#     The database schema and sample rows are:
+#     {schema}
+
+#     You should put all column names in double quotation marks, for example "label_code" or "year".
+#     You should not put table names in quotation marks, for example langchain_test_data.
+
+#     An example question and sql query output is:
+#     Question:'how many products have we sold?'
+#     SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
+
+#     Another example:
+#     Question: 'what is the year on year growth of handbag sales in new york for the last 5 years?'
+#     SQLQuery: 'SELECT EXTRACT(YEAR FROM "transaction_at") AS "year", SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END) AS "Handbag Sales", SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END) - LAG(SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END), 1) OVER (ORDER BY EXTRACT(YEAR FROM "transaction_at")) AS "Year on Year Growth" FROM langchain_test WHERE EXTRACT(YEAR FROM "transaction_at") BETWEEN YEAR(DATEADD(YEAR, -5, GETDATE())) AND YEAR(GETDATE()) GROUP BY EXTRACT(YEAR FROM "transaction_at") ORDER BY EXTRACT(YEAR FROM "transaction_at") DESC;'
+
+#     Another example:
+#     Question: 'what was the average basket size in the last week?'
+#     SQLQuery: 'WITH units_per_transaction AS (
+# SELECT "transaction_id", COUNT("units") as "basket_size" FROM langchain_test WHERE "transaction_at" >= DATEADD(DAY, -7, CURRENT_DATE)
+# GROUP BY "transaction_id"
+# )
+# SELECT avg("basket_size") FROM units_per_transaction'
+
+
+#     Now here is the question we want you to generate a SQl query for:
+#     Question: {question}
+#     SQLQuery: 
+#     """
     
     # Create a ChatPromptTemplate from the prompt
-    prompt_sql_query = ChatPromptTemplate.from_template(template_prompt_sql_query)
+    # prompt_sql_query = ChatPromptTemplate.from_template(template_prompt_sql_query)
 
     # Define a chain that generates an SQL query using LangChain espression language, and ru
     sql_query_inputs = {
