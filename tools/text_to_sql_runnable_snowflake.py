@@ -74,12 +74,22 @@ def run_query(llm, query):
     SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
 
     Another example:
-    Question: 'how many years worth of data do we have?'
-    SQLQuery: 'SELECT COUNT(DISTINCT("year")) FROM snowflake_sandbox_langchain_test'
+    Question: 'what is the year on year growth of handbag sales in new york for the last 5 years?'
+    SQLQuery: 'SELECT EXTRACT(YEAR FROM "transaction_at") AS "year",        
+SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END) AS "Handbag Sales",        
+SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END) - LAG(SUM(CASE WHEN "department" = 'HANDBAGS' THEN "usd_amount" ELSE 0 END), 1) OVER (ORDER BY EXTRACT(YEAR FROM "transaction_at")) AS "Year on Year Growth" 
+FROM langchain_test
+WHERE EXTRACT(YEAR FROM "transaction_at") BETWEEN YEAR(DATEADD(YEAR, -5, GETDATE())) AND YEAR(GETDATE()) 
+GROUP BY EXTRACT(YEAR FROM "transaction_at")
+ORDER BY EXTRACT(YEAR FROM "transaction_at") DESC;'
 
     Another example:
-    Question: 'which hour of the day has the highest revenue?'
-    SQLQuery: 'SELECT EXTRACT(HOUR FROM "transaction_timestamp") AS "hour", SUM("amount") AS "revenue" FROM snowflake_sandbox_langchain_test GROUP BY EXTRACT(HOUR FROM "transaction_timestamp") ORDER BY "revenue" DESC LIMIT 1'
+    Question: 'what was the average basket size in the last week?'
+    SQLQuery: 'SELECT avg("basket_size")
+from
+(SELECT "transaction_id", COUNT("units") as "basket_size" FROM langchain_test WHERE "transaction_at" >= DATEADD(DAY, -7, CURRENT_DATE)
+GROUP BY "transaction_id"
+)'
         
     Now here is the question we want you to generate a SQl query for:
     Question: {question}
@@ -121,8 +131,8 @@ def run_query(llm, query):
     Here is another example
     Question: 'which hour of the day has the highest revenue?'
     SQLQuery: 'SELECT EXTRACT(HOUR FROM "transaction_timestamp") AS "hour", SUM("amount") AS "revenue" FROM snowflake_sandbox_langchain_test GROUP BY EXTRACT(HOUR FROM "transaction_timestamp") ORDER BY "revenue" DESC LIMIT 1'
-    SQLResult: '[(15,)]'
-    Answer: '3pm is the hour of the day with the highest revenue.'
+    SQLResult: '[(15,1000000000)]'
+    Answer: '3pm is the hour of the day with the highest revenue, with a total of $1,000,000,000'
 
     Now here is the actual answer we need you to generate...
     Question: {question}
