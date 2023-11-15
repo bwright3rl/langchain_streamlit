@@ -47,14 +47,15 @@ st.markdown(
 )
 
 
-chain = header.selectbox(
-    'Select a chain',
-    ('Ask Kendra',
-     'Text-to-SQL (Snowflake)',
-     'Text-to-SQL'
-     ), 
-    label_visibility="hidden")
+# chain = header.selectbox(
+#     'Select a chain',
+#     ('Ask Kendra',
+#      'Text-to-SQL (Snowflake)',
+#      'Text-to-SQL'
+#      ), 
+#     label_visibility="hidden")
 
+chain = 
 
 header.write("""<div class="gradient-footer"></div>""", unsafe_allow_html=True)
 

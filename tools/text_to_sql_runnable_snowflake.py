@@ -12,6 +12,8 @@ from langchain.schema.runnable import RunnableLambda, RunnableMap
 from langchain.utilities import SQLDatabase
 from snowflake.sqlalchemy import URL
 import pinecone
+import openai
+import os
 
 #adding some comments here to test how the dataiku library sync works
 
@@ -71,8 +73,9 @@ def run_query(llm, query):
     index = pinecone.Index("langchain-queries")
 
     # generate embeddings for the user question
+    openai.api_key = os.getenv("OPENAI_API_KEY")
     model="text-embedding-ada-002"
-    question_embedding = openai.Embedding.create(input = question, model=model)['data'][0]['embedding']
+    question_embedding = openai.Embedding.create(input = query, model=model)['data'][0]['embedding']
 
     #query the vectorstore
     response = index.query(
@@ -80,7 +83,7 @@ def run_query(llm, query):
         top_k=3,
         include_values=False,
         include_metadata=True,
-        vector=example_embedding,
+        vector=question_embedding,
     )
 
     #format the examples to be used in a prompt
@@ -104,6 +107,8 @@ def run_query(llm, query):
 
     The database schema and sample rows are:
     {schema}
+
+    The table you should query is called langchain-test. Do not query any other table in the database.
 
     You should put all column names in double quotation marks, for example "label_code" or "year".
     You should not put table names in quotation marks, for example langchain_test_data.
@@ -179,19 +184,16 @@ def run_query(llm, query):
 
     Here is an example...
     Question: 'how many products have we sold?'
-    SQLQuery: 'SELECT count(distinct("label_code")) FROM snowflake_sandbox_langchain_test'
     SQLResult: '[(150,)]'
     Answer: 'We have sold 150 products'
 
     Here is another example
     Question: 'how many years worth of data do we have?'
-    SQLQuery: 'SELECT COUNT(DISTINCT("year")) FROM snowflake_sandbox_langchain_test'
     SQLResult: '[(3,)]'
     Answer: 'We have 3 years worth of data.'
 
     Here is another example
     Question: 'which hour of the day has the highest revenue?'
-    SQLQuery: 'SELECT EXTRACT(HOUR FROM "transaction_timestamp") AS "hour", SUM("amount") AS "revenue" FROM snowflake_sandbox_langchain_test GROUP BY EXTRACT(HOUR FROM "transaction_timestamp") ORDER BY "revenue" DESC LIMIT 1'
     SQLResult: '[(15,1000000000)]'
     Answer: '3pm is the hour of the day with the highest revenue, with a total of $1,000,000,000'
 
